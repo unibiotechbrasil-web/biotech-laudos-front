@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Painel Administrativo - Laudos</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f4f7fa; }
+    .container { max-width: 900px; margin: 40px auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+    h1 { text-align: center; color: #d32f2f; }
+    .section { margin: 40px 0; padding: 20px; border: 1px solid #eee; border-radius: 10px; }
+    label { display: block; margin: 10px 0 5px; font-weight: bold; }
+    input, select { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+    button { padding: 14px 20px; margin-top: 10px; background: #d32f2f; color: white; border: none; border-radius: 6px; cursor: pointer; }
+    button:hover { background: #b71c1c; }
+    .success { color: green; }
+    .error { color: red; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { padding: 12px; border: 1px solid #ddd; text-align: left; }
+    th { background: #f8f9fa; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Painel Administrativo - Laudos Laticínios</h1>
+
+    <!-- Upload Múltiplo -->
+    <div class="section">
+      <h2>Upload de Laudos (Múltiplo)</h2>
+      <form id="uploadForm">
+        <label>CNPJ:</label>
+        <input type="text" id="cnpjUpload" placeholder="11.222.333/0001-44" required>
+
+        <label>Número da Nota Fiscal:</label>
+        <input type="text" id="notaFiscalUpload" placeholder="12345" required>
+
+        <label>Data da Nota:</label>
+        <input type="date" id="dataNotaUpload" required>
+
+        <label>Selecionar Laudos (PDF):</label>
+        <input type="file" id="laudosFiles" multiple accept=".pdf" required>
+
+        <button type="submit">Fazer Upload dos Laudos</button>
+      </form>
+      <div id="uploadResult"></div>
+    </div>
+
+    <!-- Substituir Laudo -->
+    <div class="section">
+      <h2>Substituir Laudo Existente</h2>
+      <form id="updateForm">
+        <label>ID do Laudo (do Firebase):</label>
+        <input type="text" id="updateId" placeholder="-M_abc123def456ghi789" required>
+
+        <label>Novo Arquivo PDF:</label>
+        <input type="file" id="novoLaudoFile" accept=".pdf" required>
+
+        <button type="submit">Substituir Laudo</button>
+      </form>
+      <div id="updateResult"></div>
+    </div>
+
+    <!-- Excluir Laudo -->
+    <div class="section">
+      <h2>Excluir Laudo</h2>
+      <form id="deleteForm">
+        <label>ID do Laudo para Excluir:</label>
+        <input type="text" id="deleteId" placeholder="-M_abc123def456ghi789" required>
+        <button type="submit" style="background:#d32f2f;">Excluir Laudo</button>
+      </form>
+      <div id="deleteResult"></div>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = "https://biotech-laudos.vercel.app/"; // ← Troque pela URL da sua API
+
+    // Upload Múltiplo
+    document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData();
+
+      const files = document.getElementById('laudosFiles').files;
+      for (let file of files) {
+        formData.append('laudos', file);
+      }
+
+      formData.append('cnpj', document.getElementById('cnpjUpload').value.trim());
+      formData.append('notaFiscal', document.getElementById('notaFiscalUpload').value.trim());
+      formData.append('dataNota', document.getElementById('dataNotaUpload').value);
+
+      const resultDiv = document.getElementById('uploadResult');
+      resultDiv.innerHTML = '<p>Enviando laudos...</p>';
+
+      try {
+        const res = await fetch(`${API_URL}/admin/upload`, {
+          method: 'POST',
+          body: formData
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+          resultDiv.innerHTML = `<p class="success">${data.message}</p>`;
+        } else {
+          resultDiv.innerHTML = `<p class="error">${data.error || 'Erro no upload'}</p>`;
+        }
+      } catch (err) {
+        resultDiv.innerHTML = `<p class="error">Erro de conexão</p>`;
+      }
+    });
+
+    // Substituir Laudo
+    document.getElementById('updateForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData();
+      formData.append('laudo', document.getElementById('novoLaudoFile').files[0]);
+
+      const id = document.getElementById('updateId').value.trim();
+
+      const resultDiv = document.getElementById('updateResult');
+      resultDiv.innerHTML = '<p>Atualizando laudo...</p>';
+
+      try {
+        const res = await fetch(`${API_URL}/admin/update/${id}`, {
+          method: 'PUT',
+          body: formData
+        });
+        const data = await res.json();
+        resultDiv.innerHTML = res.ok 
+          ? `<p class="success">${data.message}</p>` 
+          : `<p class="error">${data.error || 'Erro ao atualizar'}</p>`;
+      } catch (err) {
+        resultDiv.innerHTML = `<p class="error">Erro de conexão</p>`;
+      }
+    });
+
+    // Excluir Laudo
+    document.getElementById('deleteForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('deleteId').value.trim();
+      const resultDiv = document.getElementById('deleteResult');
+
+      if (!confirm("Tem certeza que deseja excluir este laudo?")) return;
+
+      try {
+        const res = await fetch(`${API_URL}/admin/delete/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        resultDiv.innerHTML = res.ok 
+          ? `<p class="success">${data.message}</p>` 
+          : `<p class="error">${data.error || 'Erro ao excluir'}</p>`;
+      } catch (err) {
+        resultDiv.innerHTML = `<p class="error">Erro de conexão</p>`;
+      }
+    });
+  </script>
+</body>
+</html>
